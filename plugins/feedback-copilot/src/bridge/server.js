@@ -19,6 +19,7 @@ class BridgeServer {
       res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type');
       res.header('Permissions-Policy', 'microphone=(self)');
+      res.header('Cross-Origin-Resource-Policy', 'cross-origin');
       next();
     });
 
