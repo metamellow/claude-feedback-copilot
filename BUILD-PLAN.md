@@ -1,92 +1,148 @@
-# Claude Feedback Copilot
+# Claude Feedback Copilot — Build Plan
 
-Voice-driven product review sessions for Claude Code. An MCP server that opens a browser panel, talks the user through their app page by page, listens via speech recognition, logs structured feedback, and then fixes everything.
-
----
-
-## Test Build Notes
-
-The following issues were discovered and fixed during the test build. These notes are critical for the real build.
-
-### Bug Fixes
-
-1. **MCP SDK API**: The `Server` class and string-based handlers (`server.setRequestHandler('tools/list', ...)`) are deprecated in SDK v1.26.0. Use `McpServer` from `@modelcontextprotocol/sdk/server/mcp.js` with `registerTool()` and Zod input schemas instead.
-
-2. **`open` package removed**: Originally used to auto-open the bookmarklet page. Removed entirely — the server no longer auto-opens anything. The `open` package (ESM-only) is no longer a dependency. The slash command (`review.md`) now instructs Claude to tell the user what to do via text.
-
-3. **Zod dependency**: The MCP SDK depends on Zod transitively, but we use it directly for tool schemas. Add `zod@^3.25.0` to `package.json` dependencies explicitly.
-
-4. **Naming**: Everything uses "claude-feedback-copilot" / "feedback-copilot" / "Feedback Copilot". The old name "claude-review-pilot" is retired.
-
-5. **CLI init**: Uses `claude mcp add` command for auto-registration (zero-config). Falls back to printing the command if auto-registration fails. Does NOT manually write to MCP config files (paths vary by OS and are fragile).
-
-6. **XSS protection**: The panel's `renderLog()` method uses `innerHTML` with user-provided content. Added `escapeHtml()` method to sanitize all dynamic text before insertion.
-
-7. **Mixed content blocking**: The bookmarklet injects an HTTP script (`localhost:PORT/overlay.js`). This is blocked on HTTPS pages by Chrome's mixed content policy. This is fine — the target use case is localhost dev apps (HTTP). For HTTPS apps, users can paste the console snippet directly or use the panel in a separate tab.
-
-8. **Stdio/WS timing — `speak` blocks forever**: The MCP server runs on stdio (spawned by Claude Code), and starts an Express+WS bridge internally. When Claude calls `speak` immediately after `start_review_session`, the browser panel hasn't connected yet (the `open()` call opens a bookmarklet instruction page, NOT the panel directly). The `speak` handler blocks on `waitForEvent('user_speech')` which never resolves. Fix: (a) `speak` handler checks `bridge.connection.isConnected()` — if not connected, returns immediately with `status: 'panel_not_connected'` and instructions for Claude to guide the user. (b) `start_review_session` return includes a `next_step` field telling Claude to guide user via text (not speak) to inject the overlay. (c) `review.md` slash command adds steps 4-5 between `start_review_session` and the first `speak` call: tell user to inject overlay, wait for confirmation.
-
-9. **Slash command path**: Commands at `.claude/commands/review.md` become `/review` (NOT `/project:review`). The `/project:` prefix does not exist.
-
-10. **MCP registration on Windows**: `claude mcp add` may run silently without persisting on Windows. The most reliable approach is creating a `.mcp.json` file in the project root with the `mcpServers` config. This triggers Claude Code's project-scope MCP approval dialog on first use.
-
-### Architecture Notes
-
-- **MCP SDK CJS support**: Despite `"type": "module"` in its package.json, the SDK provides CJS builds via exports map (`"require": "./dist/cjs/..."`). Our project uses CommonJS throughout.
-- **Tool input schemas**: `McpServer.registerTool()` accepts a Zod shape object (key-value pairs of Zod types), NOT a `z.object()` wrapper. McpServer wraps it internally.
-- **Port conflicts**: Bridge server attempts port 3847 first. On `EADDRINUSE`, it increments and retries. Use `npx kill-port 3847` if a stale process holds the port.
-- **No auto-open**: The bridge server does NOT open any browser pages. The `start_review_session` return includes `bookmarklet_url` and `console_snippet` — the slash command prompt instructs Claude to relay these to the user via text.
-- **Dev server auto-start**: Handled entirely in `review.md` (prompt engineering, not code). Step 0 instructs Claude to read `package.json` scripts, check framework configs for port overrides (Vite, Next, Nuxt, Angular), run `npm run dev` in the background if not already running, and parse the port from output. No MCP server code needed — Claude already has terminal and file-reading capabilities.
-- **`console_snippet` field**: `start_review_session` returns a paste-able JS snippet that injects the overlay. This is the fallback for users who don't have the bookmarklet saved.
-- **Plugin `npm install` not automatic**: Claude Code clones plugin repos but does NOT run `npm install`. The MCP server will fail silently. Fix: `src/mcp/bootstrap.js` — a wrapper that checks for `node_modules`, runs `npm install --silent` if missing, then starts the real server. `.mcp.json` points to `bootstrap.js` instead of `index.js`. Status messages go to stderr (MCP uses stdin/stdout for transport).
+Voice-driven product review sessions for Claude Code. A plugin that opens a browser panel overlaid on the user's app, walks them through each page, listens to voice feedback via speech recognition, logs structured items, and then fixes everything. Uses MCP browser tools (Claude in Chrome) for zero-friction overlay injection.
 
 ---
 
-## Project Structure (Plugin Format)
+## 1. Plugin Directory Structure
 
-This project is a **Claude Code plugin**. It uses the native plugin system for zero-config installation. No manual MCP registration or file copying needed.
+This is a **Claude Code marketplace plugin**. The directory structure MUST follow this exact layout:
 
 ```
-claude-feedback-copilot/
+claude-feedback-copilot/              ← GitHub repo root / marketplace root
 ├── .claude-plugin/
-│   └── plugin.json             # Plugin manifest (name, version, description)
-├── .mcp.json                   # MCP server config (auto-registered on install)
-├── package.json
-├── .gitignore
-├── src/
-│   ├── mcp/
-│   │   ├── bootstrap.js        # Entry point — auto-installs deps then starts server
-│   │   ├── index.js            # MCP server (McpServer + registerTool)
-│   │   ├── tools.js            # Tool definitions (Zod schemas, 10 tools)
-│   │   └── handlers.js         # Tool execution logic
-│   ├── bridge/
-│   │   ├── server.js           # Express + WebSocket server + overlay routes
-│   │   └── connection.js       # WS connection manager
-│   ├── session/
-│   │   ├── state.js            # Session state machine
-│   │   └── review-log.js       # Structured review log
-│   └── panel/
-│       ├── index.html          # Panel UI (with draw button)
-│       ├── styles.css          # Styles (with overlay mode + draw styles)
-│       ├── app.js              # Panel client (with overlay detection, draw mode, postMessage)
-│       └── overlay.js          # Bookmarklet payload (floating iframe + drawing canvas)
-├── commands/
-│   └── review.md               # Slash command → /feedback-copilot:review
-└── README.md
+│   └── marketplace.json              ← Marketplace manifest (lists plugins)
+├── plugins/
+│   └── feedback-copilot/             ← Plugin root (referenced by marketplace.json)
+│       ├── .claude-plugin/
+│       │   └── plugin.json           ← Plugin manifest (name, version, description)
+│       ├── .mcp.json                 ← MCP server config (auto-registered on install)
+│       ├── package.json              ← Node.js dependencies
+│       ├── commands/
+│       │   └── review.md             ← Slash command → /feedback-copilot:review
+│       └── src/
+│           ├── mcp/
+│           │   ├── bootstrap.js      ← Entry point (auto-installs deps, then starts server)
+│           │   ├── index.js          ← MCP server (McpServer + registerTool)
+│           │   ├── tools.js          ← Tool definitions (Zod schemas, 10 tools)
+│           │   └── handlers.js       ← Tool execution logic
+│           ├── bridge/
+│           │   ├── server.js         ← Express + WebSocket server + overlay routes
+│           │   └── connection.js     ← WebSocket connection manager
+│           ├── session/
+│           │   ├── state.js          ← Session state machine
+│           │   └── review-log.js     ← Structured feedback log
+│           └── panel/
+│               ├── index.html        ← Panel UI
+│               ├── styles.css        ← Styles (with overlay-mode overrides)
+│               ├── app.js            ← Panel client (WebSocket, speech, draw mode)
+│               └── overlay.js        ← Injection payload (floating iframe + drawing canvas)
+├── BUILD-PLAN.md
+├── README.md
+└── .gitignore                        ← Must include node_modules/
 ```
 
-### Plugin System Notes
-
-- `.claude-plugin/plugin.json` — only manifest fields, no code
-- `.mcp.json` — uses `${CLAUDE_PLUGIN_ROOT}` for portable paths
-- `commands/review.md` — auto-discovered as `/feedback-copilot:review` (namespaced)
-- **No `bin/cli.js`** — the plugin system replaces the old `feedback-copilot init` command entirely
-- **No manual file copying** — users install with `/plugin install` and everything registers automatically
-- **No `.mcp.json` in target projects** — the plugin's `.mcp.json` is scoped to the plugin, not injected into user projects
+**CRITICAL**: The `plugins/feedback-copilot/` subdirectory is mandatory. Claude Code expects marketplace repos to have plugins inside `plugins/<name>/`. Putting plugin files at the repo root will NOT work.
 
 ---
 
-## Dependencies
+## 2. Plugin System Requirements
+
+### marketplace.json (at repo root: `.claude-plugin/marketplace.json`)
+
+```json
+{
+  "name": "feedback-copilot",
+  "owner": { "name": "metamellow" },
+  "plugins": [
+    {
+      "name": "feedback-copilot",
+      "source": "./plugins/feedback-copilot",
+      "description": "Voice-driven product review sessions for Claude Code...",
+      "version": "1.0.0",
+      "category": "productivity"
+    }
+  ]
+}
+```
+
+**CRITICAL**: The `source` field MUST be a relative local path (`"./plugins/feedback-copilot"`), NOT a GitHub URL object. This is how Claude Code resolves the plugin within the cloned repo.
+
+### plugin.json (at plugin root: `plugins/feedback-copilot/.claude-plugin/plugin.json`)
+
+```json
+{
+  "name": "feedback-copilot",
+  "description": "Voice-driven product review sessions for Claude Code...",
+  "version": "1.0.0",
+  "author": { "name": "metamellow" },
+  "repository": "https://github.com/metamellow/claude-feedback-copilot",
+  "license": "MIT",
+  "keywords": ["feedback", "review", "voice", "product", "ux"]
+}
+```
+
+### .mcp.json (at plugin root: `plugins/feedback-copilot/.mcp.json`)
+
+```json
+{
+  "mcpServers": {
+    "feedback-copilot": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/src/mcp/bootstrap.js"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+    }
+  }
+}
+```
+
+**CRITICAL**: Use `${CLAUDE_PLUGIN_ROOT}` — this environment variable is set by Claude Code and resolves to the plugin's installed location (e.g., `~/.claude/plugins/marketplaces/feedback-copilot/plugins/feedback-copilot/`).
+
+**CRITICAL**: Point to `bootstrap.js`, NOT `index.js`. Claude Code does NOT run `npm install` after cloning plugins. The bootstrap script handles this.
+
+### bootstrap.js (`src/mcp/bootstrap.js`)
+
+```javascript
+#!/usr/bin/env node
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+const root = path.resolve(__dirname, '..', '..');
+const nodeModules = path.join(root, 'node_modules');
+
+if (!fs.existsSync(nodeModules)) {
+  process.stderr.write('Feedback Copilot: installing dependencies (first run)...\n');
+  execSync('npm install --silent', { cwd: root, stdio: ['pipe', 'pipe', 'inherit'] });
+  process.stderr.write('Feedback Copilot: dependencies installed.\n');
+}
+
+require('./index.js');
+```
+
+Status messages go to **stderr** (MCP uses stdin/stdout for transport — anything on stdout corrupts the protocol).
+
+### commands/review.md — YAML Frontmatter
+
+```yaml
+---
+description: Start a voice-driven product review session — walks through your app page by page, listens to feedback, and fixes everything
+allowed-tools: [Bash, Read, Glob, Grep, Write, Edit, "mcp__Claude_in_Chrome__tabs_context_mcp", "mcp__Claude_in_Chrome__tabs_create_mcp", "mcp__Claude_in_Chrome__navigate", "mcp__Claude_in_Chrome__javascript_tool", "mcp__Claude_in_Chrome__computer", "mcp__Claude_in_Chrome__read_page", "mcp__Claude_in_Chrome__find"]
+---
+```
+
+**CRITICAL**: The `---` frontmatter block is REQUIRED. Without it, the command file will not be recognized by the plugin system. The `allowed-tools` list must include MCP browser tools for auto-injection.
+
+### Plugin naming and namespacing
+
+- Plugin name in all manifests: `feedback-copilot`
+- Command file `review.md` auto-discovers as `/feedback-copilot:review`
+- MCP server registers as `feedback-copilot` — tools appear as `mcp__feedback-copilot__<tool_name>`
+- The `enabledPlugins` entry in `~/.claude.json` uses format: `"feedback-copilot@feedback-copilot": true`
+
+---
+
+## 3. Dependencies
 
 ```json
 {
@@ -94,105 +150,44 @@ claude-feedback-copilot/
   "version": "1.0.0",
   "description": "Voice-driven product review sessions for Claude Code",
   "main": "src/mcp/index.js",
-  "scripts": {
-    "start": "node src/mcp/index.js"
-  },
+  "scripts": { "start": "node src/mcp/index.js" },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "express": "^4.18.0",
     "ws": "^8.16.0",
     "zod": "^3.25.0"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+  "engines": { "node": ">=18.0.0" }
 }
 ```
 
-Key dependency notes:
-- `@modelcontextprotocol/sdk@^1.26.0` — uses `McpServer` + `registerTool()` API
-- `zod@^3.25.0` — used directly for tool input schemas (also a transitive dep of SDK)
-- **No `open` package** — server does not auto-open any pages; orchestration is in review.md
-- **No `bin` entry** — plugin system replaces the CLI `init` command
+- `@modelcontextprotocol/sdk` — MCP server framework. Use `McpServer` from `server/mcp.js`, NOT deprecated `Server` class.
+- `express` — HTTP server for panel UI and overlay.js serving.
+- `ws` — WebSocket server for real-time communication between MCP server and browser panel.
+- `zod` — Input schema validation for MCP tools. Also a transitive dep of SDK, but declare explicitly.
+- **No `open` package** — the server does not auto-open any browser pages.
+- **No `bin` entry** — the plugin system replaces any CLI init command.
+
+The MCP SDK provides CJS builds via exports map despite its `"type": "module"`. Our project uses CommonJS throughout.
 
 ---
 
-## MCP Tools (10 total)
+## 4. MCP Server Implementation
 
-| Tool | Description |
-|------|-------------|
-| `start_review_session` | Starts session. Returns `panel_url`, `bookmarklet_url`, `console_snippet`. |
-| `speak` | TTS message to user. `await_response: true` auto-listens after. |
-| `listen` | Activate mic, wait for user speech. |
-| `log_feedback` | Log structured feedback (page, category, severity, description). |
-| `update_panel_state` | Update panel display (progress, status). |
-| `get_review_summary` | Get full review log for fix phase. |
-| `end_review_session` | Close session and panel. |
-| `request_drawing` | Ask user to draw on screen. Returns base64 PNG. |
-| `hide_overlay` | Hide floating overlay (for screenshots). |
-| `show_overlay` | Show floating overlay again. |
-
----
-
-## Architecture: Overlay Mode
-
-The panel can run as a floating iframe overlay on the user's app page (instead of a separate tab).
-
-### How it works
-
-1. `start_review_session` starts the bridge server (no page auto-opens). Claude tells the user to open their app and inject the overlay.
-2. User navigates to their app and either clicks the saved bookmarklet or pastes the console snippet
-3. The bookmarklet injects a `<script>` tag loading `/overlay.js` from the bridge server
-4. `overlay.js` creates:
-   - A floating `<iframe>` pointing to `localhost:PORT/?overlay=true` (the panel in compact mode)
-   - A full-viewport transparent `<canvas>` for freehand drawing
-   - A drag handle, minimize/expand toggle, and floating "Done Drawing" button
-5. The panel detects `?overlay=true` and applies compact CSS (smaller padding, buttons, constrained log)
-6. Communication between iframe and host page uses `postMessage`
-
-### Drawing data flow
-
-```
-Claude calls request_drawing tool
-  → handlers.js sends 'request_drawing' via WS
-  → panel app.js receives, calls startDrawMode()
-  → panel sends postMessage {type:'fc-start-drawing'} to parent
-  → overlay.js (host page) activates canvas (pointer-events: auto, crosshair cursor)
-  → user draws freehand (red #ff3b30, 3px lines)
-  → user clicks Done / presses Escape
-  → overlay.js captures canvas.toDataURL('image/png')
-  → overlay.js sends postMessage {type:'fc-drawing-complete', imageData} to iframe
-  → panel app.js receives, sends 'drawing_complete' via WS
-  → handlers.js resolves waitForEvent, returns base64 image to Claude
-```
-
-### Key technical notes
-
-- **iframe mic access**: Requires `allow="microphone"` attribute on iframe AND `Permissions-Policy: microphone=(self)` header
-- **Bookmarklet approach**: Script tag loader (~100 chars) avoids bookmarklet length limits
-- **Port injection**: `/overlay.js` route reads the file and replaces `__PORT__` with the actual port
-- **Drawing size**: Full viewport canvas with freehand lines = typically 5-20KB PNG (mostly transparent)
-- **Mixed content**: HTTP script won't load on HTTPS pages. Target use case is localhost (HTTP).
-
----
-
-## File-by-File Implementation Guide
-
-### `src/mcp/index.js`
-
-Uses `McpServer` (not deprecated `Server`). Registers all tools from `tools.js` with Zod schemas. Connects via `StdioServerTransport`.
+### index.js — Server Setup
 
 ```javascript
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 ```
 
-Loop pattern:
+Register tools in a loop:
+
 ```javascript
 for (const [name, def] of Object.entries(toolDefinitions)) {
   server.registerTool(name, {
     description: def.description,
-    inputSchema: def.inputSchema, // Zod shape object, NOT z.object()
+    inputSchema: def.inputSchema,  // Zod shape object, NOT z.object()
   }, async (args) => {
     const result = await handleToolCall(name, args);
     return { content: [{ type: 'text', text: JSON.stringify(result) }] };
@@ -200,140 +195,291 @@ for (const [name, def] of Object.entries(toolDefinitions)) {
 }
 ```
 
-### `src/mcp/tools.js`
+Connect via stdio:
 
-Each tool is a `{ description, inputSchema }` where `inputSchema` is a Zod shape (key-value pairs). Example:
+```javascript
+const transport = new StdioServerTransport();
+await server.connect(transport);
+```
+
+### tools.js — Tool Definitions
+
+Each tool is `{ description, inputSchema }` where `inputSchema` is a Zod **shape object** (key-value pairs), NOT wrapped in `z.object()`. McpServer wraps it internally.
 
 ```javascript
 const z = require('zod');
 
 const toolDefinitions = {
   speak: {
-    description: 'Say something to the user...',
+    description: 'Say something to the user via text-to-speech...',
     inputSchema: {
       message: z.string().describe('What to say'),
-      await_response: z.boolean().optional().default(true).describe('...'),
+      await_response: z.boolean().optional().default(true).describe('Wait for user speech response'),
     },
   },
   // ... 10 tools total
 };
 ```
 
-### `src/mcp/handlers.js`
+### 10 MCP Tools
 
-Singleton `bridge`, `session`, `reviewLog`. Notable handlers:
+| Tool | Description |
+|------|-------------|
+| `start_review_session` | Starts bridge server. Returns `port`, `panel_url`, `bookmarklet_url`, `console_snippet`, `injection_script`. |
+| `speak` | TTS message to user. `await_response: true` (default) auto-listens after. Checks `isConnected()` first. |
+| `listen` | Activate mic, wait for user speech transcription. |
+| `log_feedback` | Log structured feedback (page, category, severity, description). |
+| `update_panel_state` | Update panel display (current page, progress). |
+| `get_review_summary` | Get full review log for fix phase. |
+| `end_review_session` | Close session, stop bridge server. |
+| `request_drawing` | Ask user to draw on screen. Returns base64 PNG. |
+| `hide_overlay` | Hide floating overlay (for screenshots). |
+| `show_overlay` | Show floating overlay again. |
 
-- `start_review_session`: Creates bridge, returns `{ panel_url, bookmarklet_url, console_snippet, next_step }` — the `next_step` tells Claude to guide user through overlay setup via text before calling `speak`
-- `speak`: **Checks `bridge.connection.isConnected()` first** — if panel not connected, returns `{ status: 'panel_not_connected', instructions }` immediately instead of blocking. Only sends TTS over WS when connected.
-- `request_drawing`: Sends `request_drawing` event, waits for `drawing_complete`, returns base64 image
-- `hide_overlay` / `show_overlay`: Send events to panel which forwards to host via postMessage
+### handlers.js — Key Patterns
 
-### `src/bridge/server.js`
+**Stale bridge cleanup** — `start_review_session` must close any previous bridge before creating a new one:
 
-Express server with:
-- CORS middleware + `Permissions-Policy: microphone=(self)` header
-- `GET /overlay.js` — reads `overlay.js`, replaces `__PORT__`, serves as JS
-- `GET /bookmarklet` — HTML page with bookmarklet link + console paste fallback
-- Static file serving for the panel
-- WebSocket server for real-time communication
-- Does NOT auto-open any page. The `open` package was removed. Bookmarklet URL is returned in the MCP response for Claude to relay to the user.
+```javascript
+if (bridge) {
+  try { await bridge.stop(); } catch (e) { /* ignore */ }
+  bridge = null;
+}
+```
 
-### `src/bridge/connection.js`
+**Panel connection check** — `speak` must check `bridge.connection.isConnected()` before blocking on WebSocket events. If panel not connected, return `{ status: 'panel_not_connected', instructions }` immediately.
 
-WebSocket connection manager with:
-- `register(ws)` — sets up message handler, resolves pending promises by event name
-- `send(payload)` — JSON serialize and send
-- `waitForEvent(name, timeout)` — returns Promise, rejects on timeout
-- `close()` — closes WS and clears all pending resolvers
-
-### `src/panel/overlay.js`
-
-Bookmarklet payload (runs in HOST page context). Creates:
-- `#fc-overlay-root` — floating container with drag handle, minimize toggle, iframe
-- `#fc-draw-canvas` — full-viewport transparent canvas for freehand drawing
-- Floating "Done Drawing" button as fallback
-
-postMessage bridge handles: `fc-start-drawing`, `fc-stop-drawing`, `fc-clear-drawing`, `fc-hide-overlay`, `fc-show-overlay`
-
-Drawing: mouse + touch events, red lines (#ff3b30), 3px, round caps/joins. Escape key finishes drawing.
-
-### `src/panel/index.html`
-
-Panel HTML with draw button (pencil SVG icon) and draw-status bar (Done/Clear buttons, hidden by default) in the voice section.
-
-### `src/panel/styles.css`
-
-Includes:
-- Base panel styles (header, message bubble, voice section, review log, footer)
-- `.draw-btn` styles (idle, hover, active/recording states)
-- `.draw-status` bar styles
-- `body.overlay` overrides — compact layout for iframe mode (smaller padding, smaller buttons, transparent bg, constrained 180px log)
-
-### `src/panel/app.js`
-
-Panel client with:
-- Overlay detection via `?overlay=true` URL param → adds `overlay` class to body
-- `setupOverlayMessaging()` — listens for `fc-drawing-complete` postMessage
-- `forwardToHost(type)` — sends postMessage to parent window
-- Draw mode: `startDrawMode()`, `stopDrawMode()`, `clearDrawing()`, `onDrawingComplete()`, `onRequestDrawing()`
-- Event handling for `request_drawing`, `hide_overlay`, `show_overlay`
-- `escapeHtml()` for XSS protection in log rendering
-
-### `commands/review.md`
-
-The "brain" — slash command prompt that instructs Claude how to conduct review sessions. Includes:
-- Role definition (senior product reviewer / design partner)
-- Session flow (**detect dev server + port** → auto-run if needed → analyze routes → prioritize → start session → **text-based panel setup** → wait for user confirmation → speak → listen → log → transition)
-- Categorization and severity guidelines
-- Overlay mode: `hide_overlay` before screenshots, `show_overlay` after
-- Drawing: use `request_drawing` when spatial feedback is vague
-- Tone guidance (conversational, concise, opinionated)
-- Special signals: `[[NEXT PAGE]]` and `[[WRAP UP]]`
+**start_review_session return** — must include `port`, `injection_script`, `console_snippet`, `next_step` with instructions for both automated and manual overlay injection paths.
 
 ---
 
-## Installation (Plugin)
+## 5. Bridge Server
 
-This is a Claude Code plugin. No manual file copying or MCP registration needed.
+### server.js — Express + WebSocket
+
+CORS middleware — apply to ALL responses:
+
+```javascript
+this.app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Permissions-Policy', 'microphone=(self)');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+});
+```
+
+**CRITICAL**: The `Cross-Origin-Resource-Policy: cross-origin` header is required. Without it, apps with Cross-Origin Embedder Policy (COEP) — like Next.js — will block overlay.js loading with `ERR_BLOCKED_BY_RESPONSE`.
+
+**CRITICAL**: The `Permissions-Policy: microphone=(self)` header is required for speech recognition in the iframe.
+
+### Routes
+
+- `GET /overlay.js` — Read `panel/overlay.js`, replace `__PORT__` with actual port, serve as `application/javascript`
+- `GET /bookmarklet` — HTML instruction page with bookmarklet link and console paste fallback
+- Static files — `express.static()` serves the panel directory (index.html, app.js, styles.css)
+
+### Port Management
+
+Default port: `3847`. On `EADDRINUSE`, increment and retry (max 10 attempts). Log retries to stderr:
+
+```javascript
+process.stderr.write(`Feedback Copilot: port ${this.port} in use, trying ${this.port + 1}...\n`);
+```
+
+### connection.js — WebSocket Manager
+
+- `register(ws)` — stores WebSocket, sets up JSON message handler, resolves pending event promises
+- `send(payload)` — JSON serialize and send to connected client
+- `waitForEvent(name, timeout)` — returns Promise that resolves when the named event arrives, rejects on timeout (default 120s)
+- `isConnected()` — returns true if a WebSocket client is connected
+- `close()` — closes WebSocket and rejects all pending promises
+
+---
+
+## 6. Overlay + Panel
+
+### overlay.js — Injection Payload
+
+Runs in the **host page context** (the user's app). Self-contained IIFE. Creates:
+
+1. **Floating container** (`#fc-overlay-root`) — fixed position, bottom-right, 380x540px, z-index 2147483646
+   - Drag handle (mousedown + mousemove drag, touch support)
+   - Minimize/expand toggle button
+   - iframe (`allow="microphone"`) pointing to `http://localhost:PORT/?overlay=true`
+
+2. **Drawing canvas** (`#fc-draw-canvas`) — full-viewport, transparent, z-index 2147483645
+   - Mouse + touch drawing (red #ff3b30, 3px lines, round caps)
+   - "Done Drawing" floating button
+   - Escape key finishes drawing
+   - Captures canvas as PNG via `toDataURL()`
+
+3. **postMessage bridge** — listens for messages from the panel iframe:
+   - `fc-start-drawing` → activate canvas
+   - `fc-stop-drawing` → capture and finish
+   - `fc-clear-drawing` → clear canvas
+   - `fc-hide-overlay` / `fc-show-overlay` → toggle visibility
+
+**Port injection**: The `__PORT__` placeholder in overlay.js is replaced by the bridge server's `/overlay.js` route at serve time. The iframe always points to the correct port.
+
+### Panel (index.html + app.js + styles.css)
+
+The panel loads inside the overlay iframe at `http://localhost:PORT/?overlay=true`.
+
+**Overlay detection**: `app.js` reads `?overlay=true` from URL → adds `overlay` class to body → compact CSS kicks in (smaller padding, constrained log height).
+
+**Speech synthesis (output)**: Uses `window.speechSynthesis` API. Prefers voices like "Samantha" or "Google UK English Female". Receives `speak` events via WebSocket, sends `speech_complete` when done.
+
+**Speech recognition (input)**: Uses Web Speech API (`webkitSpeechRecognition`). Two modes: hold-to-talk and click-to-toggle. Spacebar toggles recording. Sends transcripts as `user_speech` WebSocket events.
+
+**Drawing mode**: Receives `request_drawing` event → sends `fc-start-drawing` postMessage to parent → user draws on canvas → `fc-drawing-complete` postMessage returns image data → sends `drawing_complete` WebSocket event.
+
+**Review log display**: Renders feedback items grouped by page, color-coded by severity (critical/major/minor/suggestion), with category badges.
+
+**XSS protection**: All dynamic text rendered via `innerHTML` MUST be sanitized through an `escapeHtml()` function.
+
+### Drawing Data Flow
+
+```
+Claude calls request_drawing tool
+  → handlers.js sends 'request_drawing' via WebSocket
+  → panel app.js receives, calls startDrawMode()
+  → panel sends postMessage {type:'fc-start-drawing'} to parent
+  → overlay.js activates canvas (pointer-events: auto, crosshair cursor)
+  → user draws freehand (red strokes)
+  → user clicks Done / presses Escape
+  → overlay.js captures canvas.toDataURL('image/png')
+  → overlay.js sends postMessage {type:'fc-drawing-complete', imageData} to iframe
+  → panel app.js receives, sends 'drawing_complete' via WebSocket
+  → handlers.js resolves waitForEvent, returns base64 image to Claude
+```
+
+---
+
+## 7. Session Flow (review.md)
+
+The slash command (`/feedback-copilot:review`) is the orchestration brain. It instructs Claude through a complete review session.
+
+### Step 0 — Detect dev server
+
+Read `package.json` scripts. Check framework configs for port overrides:
+- `vite.config.ts/.js` → `server.port` (default 5173)
+- `next.config.js/.mjs` → default 3000
+- `nuxt.config.ts` → default 3000
+- `angular.json` → `serve.options.port` (default 4200)
+- `.env` / `.env.local` → `PORT=`
+
+If dev server not running, start it in background (`npm run dev`). Parse port from output.
+
+### Step 1-2 — Analyze routes, prioritize pages
+
+### Step 3 — Call `start_review_session`
+
+### Step 4 — Inject overlay (automated path via MCP browser tools)
+
+1. `mcp__Claude_in_Chrome__tabs_context_mcp` with `createIfEmpty: true`
+2. `mcp__Claude_in_Chrome__tabs_create_mcp` → get tabId
+3. `mcp__Claude_in_Chrome__navigate` → open app URL in tab
+4. Wait 3 seconds for page load
+5. `mcp__Claude_in_Chrome__javascript_tool` → inject `injection_script` from start_review_session return
+6. Wait 2 seconds for WebSocket connection
+7. Tell user the panel is ready
+
+**Fallback**: If any browser tool fails (extension not installed), tell user to paste `console_snippet` into browser console manually.
+
+### Step 5-6 — Confirm connection, begin review
+
+### Review loop
+
+For each page: speak context → listen to feedback → clarify if vague → log each item → transition to next page.
+
+### Wrap up
+
+Get review summary → verbal summary via speak → end session → fix all items starting from critical severity.
+
+---
+
+## 8. Guardrails
+
+These are hard-won rules. Follow them exactly.
+
+### MCP Server
+
+- **DO** use `McpServer` from `@modelcontextprotocol/sdk/server/mcp.js`
+- **DO NOT** use the deprecated `Server` class — it has a different API and will cause silent failures
+- **DO** pass Zod shape objects (key-value pairs) to `registerTool()` inputSchema
+- **DO NOT** wrap schemas in `z.object()` — McpServer does this internally; double-wrapping breaks validation
+- **DO** use `StdioServerTransport` — MCP communicates via stdin/stdout
+- **DO NOT** write anything to stdout except MCP protocol messages — use stderr for logging
+
+### Plugin System
+
+- **DO** put plugin files in `plugins/feedback-copilot/` subdirectory, NOT at repo root
+- **DO** use `"source": "./plugins/feedback-copilot"` in marketplace.json (relative local path)
+- **DO NOT** use a GitHub URL object as the source — it won't resolve correctly for installed plugins
+- **DO** include YAML frontmatter (`---` block) in command .md files with `description` and `allowed-tools`
+- **DO** use `bootstrap.js` as the .mcp.json entry point (handles missing node_modules)
+- **DO NOT** assume Claude Code runs `npm install` — it doesn't
+- **DO** use `${CLAUDE_PLUGIN_ROOT}` for paths in .mcp.json
+
+### Bridge Server
+
+- **DO** set `Cross-Origin-Resource-Policy: cross-origin` header on all responses
+- **DO** set `Permissions-Policy: microphone=(self)` header
+- **DO** set `Access-Control-Allow-Origin: *` header
+- **DO** replace `__PORT__` in overlay.js at serve time (not build time)
+- **DO** add port retry with max attempts and stderr logging
+- **DO NOT** auto-open any browser pages (no `open` package)
+- **DO** clean up stale bridge in `start_review_session` before creating a new one
+
+### Panel + Overlay
+
+- **DO** set `allow="microphone"` on the overlay iframe element
+- **DO** sanitize all dynamic text with `escapeHtml()` before using `innerHTML`
+- **DO** check `bridge.connection.isConnected()` in the `speak` handler before blocking on WebSocket events
+- **DO NOT** call `speak` before the panel is connected — return `panel_not_connected` status instead
+- **DO** use postMessage bridge between overlay.js (host page) and panel iframe for drawing communication
+- **DO** support both mouse and touch events for drag and drawing
+
+### Browser Integration
+
+- **DO** include Claude in Chrome MCP tools in `allowed-tools` frontmatter
+- **DO** try automated overlay injection via `javascript_tool` first
+- **DO** fall back to manual console paste if browser tools are unavailable
+- **DO** use the `injection_script` from `start_review_session` return (contains correct port)
+- **DO NOT** hardcode port numbers in injection scripts — always use the port from the bridge server
+
+### General
+
+- Mixed content: overlay only works on HTTP pages (localhost dev apps). HTTPS pages block HTTP scripts.
+- Port conflicts: use `npx kill-port 3847` to clear stale processes
+- Drawing PNGs are typically 5-20KB (mostly transparent canvas)
+- All WebSocket events use JSON format: `{ event: 'name', data: {...} }`
+
+---
+
+## 9. Installation
 
 ### From GitHub
+
 ```
 /plugin install github:metamellow/claude-feedback-copilot
 ```
 
-### From local directory (development)
-```bash
-claude --plugin-dir /path/to/claude-feedback-copilot
-```
+Or use the Desktop app's "Add marketplace from GitHub" UI: `metamellow/claude-feedback-copilot`
 
-After installation:
-- MCP server auto-registers (from `.mcp.json`)
-- Slash command becomes available as `/feedback-copilot:review`
+### After installation
+
+- MCP server auto-registers from `.mcp.json`
+- Slash command available as `/feedback-copilot:review`
+- First run: `bootstrap.js` auto-installs npm dependencies (takes ~10 seconds)
 - Nothing is injected into target project directories
 
-### First-time bookmarklet setup
+### Uninstall
 
-On first use, the user needs to save the bookmarklet once:
-1. Run `/feedback-copilot:review` in any project
-2. Claude will tell you the bookmarklet URL (e.g. `localhost:3847/bookmarklet`)
-3. Visit that URL, drag the bookmarklet to your bookmarks bar
-4. Done — the bookmarklet works for all future sessions in any project
-
----
-
-## Uninstall
-
-### Plugin uninstall
 ```
 /plugin uninstall feedback-copilot
 ```
 
-This removes the MCP server registration and slash command. No files are left in target projects.
-
-### Kill lingering processes
-```bash
-npx kill-port 3847
-```
-
-### Remove bookmarklet
-Delete "Feedback Copilot" from your browser bookmarks bar (optional).
+Kill lingering processes: `npx kill-port 3847`

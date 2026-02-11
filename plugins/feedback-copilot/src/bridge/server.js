@@ -8,6 +8,8 @@ const { ConnectionManager } = require('./connection');
 class BridgeServer {
   constructor(port = 3847) {
     this.port = port;
+    this.startPort = port;
+    this.maxRetries = 10;
     this.app = express();
     this.server = null;
     this.connection = new ConnectionManager();
@@ -86,7 +88,11 @@ class BridgeServer {
 
       this.server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-          // Try next port
+          if (this.port - this.startPort >= this.maxRetries) {
+            reject(new Error(`No available port after ${this.maxRetries} attempts (tried ${this.startPort}-${this.port}). Run: npx kill-port ${this.startPort}`));
+            return;
+          }
+          process.stderr.write(`Feedback Copilot: port ${this.port} in use, trying ${this.port + 1}...\n`);
           this.port++;
           this.server.listen(this.port);
         } else {

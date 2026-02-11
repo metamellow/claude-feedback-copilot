@@ -8,6 +8,12 @@ let reviewLog = null;
 
 const handlers = {
   async start_review_session({ app_url, pages }) {
+    // Clean up any stale session from a previous run
+    if (bridge) {
+      try { await bridge.stop(); } catch (e) { /* ignore */ }
+      bridge = null;
+    }
+
     session = new SessionState(pages);
     reviewLog = new ReviewLog();
 
@@ -20,13 +26,17 @@ const handlers = {
       pages: pages,
     });
 
+    const snippet = `document.body.appendChild(Object.assign(document.createElement('script'),{src:'http://localhost:${bridge.port}/overlay.js'}))`;
+
     return {
       status: 'session_started',
+      port: bridge.port,
       panel_url: bridge.url,
       bookmarklet_url: bridge.bookmarkletUrl,
-      console_snippet: `document.body.appendChild(Object.assign(document.createElement('script'),{src:'http://localhost:${bridge.port}/overlay.js'}))`,
+      console_snippet: snippet,
+      injection_script: snippet,
       pages_to_review: pages.length,
-      next_step: 'The browser panel is NOT connected yet. No page was auto-opened. Tell the user via normal text (NOT speak): "The review server is running. Open your app at [app_url] in your browser, then click the Feedback Copilot bookmarklet to inject the overlay. If you don\'t have the bookmarklet, paste this into your console: [console_snippet]. Let me know when you see Connected in the panel." Wait for confirmation before calling speak.',
+      next_step: 'The browser panel is NOT connected yet. Use MCP browser tools (Claude in Chrome) to open the app_url in a new tab and inject the overlay automatically by running injection_script via javascript_tool. If browser tools are not available, tell the user via normal text (NOT speak) to open their app and paste console_snippet into the browser console. Wait for the panel to connect before calling speak.',
     };
   },
 
