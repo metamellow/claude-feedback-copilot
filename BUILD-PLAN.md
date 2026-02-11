@@ -38,6 +38,7 @@ The following issues were discovered and fixed during the test build. These note
 - **No auto-open**: The bridge server does NOT open any browser pages. The `start_review_session` return includes `bookmarklet_url` and `console_snippet` — the slash command prompt instructs Claude to relay these to the user via text.
 - **Dev server auto-start**: Handled entirely in `review.md` (prompt engineering, not code). Step 0 instructs Claude to read `package.json` scripts, check framework configs for port overrides (Vite, Next, Nuxt, Angular), run `npm run dev` in the background if not already running, and parse the port from output. No MCP server code needed — Claude already has terminal and file-reading capabilities.
 - **`console_snippet` field**: `start_review_session` returns a paste-able JS snippet that injects the overlay. This is the fallback for users who don't have the bookmarklet saved.
+- **Plugin `npm install` not automatic**: Claude Code clones plugin repos but does NOT run `npm install`. The MCP server will fail silently. Fix: `src/mcp/bootstrap.js` — a wrapper that checks for `node_modules`, runs `npm install --silent` if missing, then starts the real server. `.mcp.json` points to `bootstrap.js` instead of `index.js`. Status messages go to stderr (MCP uses stdin/stdout for transport).
 
 ---
 
@@ -54,7 +55,8 @@ claude-feedback-copilot/
 ├── .gitignore
 ├── src/
 │   ├── mcp/
-│   │   ├── index.js            # MCP server entry point (McpServer + registerTool)
+│   │   ├── bootstrap.js        # Entry point — auto-installs deps then starts server
+│   │   ├── index.js            # MCP server (McpServer + registerTool)
 │   │   ├── tools.js            # Tool definitions (Zod schemas, 10 tools)
 │   │   └── handlers.js         # Tool execution logic
 │   ├── bridge/
