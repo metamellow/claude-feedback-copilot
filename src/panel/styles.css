@@ -1,0 +1,550 @@
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #aeaeb2;
+  --accent: #0071e3;
+  --accent-hover: #0077ED;
+  --accent-glow: rgba(0, 113, 227, 0.12);
+  --red: #ff3b30;
+  --orange: #ff9500;
+  --yellow: #ffcc00;
+  --green: #34c759;
+  --purple: #af52de;
+  --border: rgba(0, 0, 0, 0.06);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.08);
+  --transition: 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+
+/* Header */
+
+header {
+  padding: 20px 24px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.status-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--border);
+  padding: 3px 10px;
+  border-radius: 100px;
+  margin-left: 10px;
+  transition: all var(--transition);
+}
+
+.status-badge.active {
+  color: var(--green);
+  background: rgba(52, 199, 89, 0.1);
+}
+
+.status-badge.listening {
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#progress-text {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+#progress-bar-container {
+  width: 60px;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+
+/* Main content */
+
+main {
+  flex: 1;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+
+/* Claude message */
+
+#claude-message-section {
+  padding-top: 8px;
+}
+
+.message-bubble {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  transition: opacity var(--transition);
+  min-height: 60px;
+}
+
+
+/* Voice section */
+
+#voice-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.transcript {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+  min-height: 20px;
+  max-width: 100%;
+  word-wrap: break-word;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.transcript.visible {
+  opacity: 1;
+}
+
+.talk-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
+}
+
+.talk-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.talk-btn-inner {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.talk-btn:not(:disabled):hover .talk-btn-inner {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.talk-btn:not(:disabled):active .talk-btn-inner,
+.talk-btn.recording .talk-btn-inner {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  transform: scale(1.08);
+  box-shadow: 0 0 0 8px var(--accent-glow), var(--shadow-md);
+}
+
+.talk-btn.recording .talk-btn-inner {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 8px var(--accent-glow), var(--shadow-md); }
+  50% { box-shadow: 0 0 0 16px rgba(0, 113, 227, 0.06), var(--shadow-md); }
+}
+
+.talk-btn-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  letter-spacing: 0.01em;
+}
+
+
+/* Review log */
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 12px;
+}
+
+#review-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 24px;
+}
+
+.log-page-group {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.log-page-header {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-page-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--bg);
+  padding: 2px 8px;
+  border-radius: 100px;
+}
+
+.log-item {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  animation: slideIn 0.2s ease-out;
+}
+
+.log-item:last-child {
+  border-bottom: none;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.log-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.log-badge.bug { background: rgba(255, 59, 48, 0.1); color: var(--red); }
+.log-badge.visual { background: rgba(175, 82, 222, 0.1); color: var(--purple); }
+.log-badge.ux { background: rgba(255, 149, 0, 0.1); color: var(--orange); }
+.log-badge.performance { background: rgba(255, 204, 0, 0.15); color: #b38f00; }
+.log-badge.content { background: rgba(0, 113, 227, 0.1); color: var(--accent); }
+.log-badge.feature_request { background: rgba(52, 199, 89, 0.1); color: var(--green); }
+
+.severity-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.severity-dot.critical { background: var(--red); }
+.severity-dot.major { background: var(--orange); }
+.severity-dot.minor { background: var(--yellow); }
+.severity-dot.suggestion { background: var(--text-tertiary); }
+
+
+/* Footer */
+
+footer {
+  padding: 16px 24px;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.action-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.action-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.action-btn.secondary {
+  background: var(--bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.action-btn.secondary:not(:disabled):hover {
+  background: var(--border);
+}
+
+.action-btn.primary {
+  background: var(--accent);
+  color: white;
+}
+
+.action-btn.primary:not(:disabled):hover {
+  background: var(--accent-hover);
+}
+
+
+/* Empty state for log */
+
+.log-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+
+/* === Draw Button === */
+
+.draw-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.draw-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.draw-btn:not(:disabled):hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.draw-btn.active {
+  background: var(--red);
+  border-color: var(--red);
+  color: white;
+}
+
+.draw-status {
+  background: rgba(255, 59, 48, 0.06);
+  border: 1px solid rgba(255, 59, 48, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--red);
+  font-weight: 500;
+  margin: 0 24px;
+}
+
+.draw-status-text {
+  flex: 1;
+}
+
+.draw-done-btn,
+.draw-clear-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.draw-done-btn {
+  background: var(--red);
+  color: white;
+}
+
+.draw-done-btn:hover {
+  background: #e8352b;
+}
+
+.draw-clear-btn {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--red);
+}
+
+.draw-clear-btn:hover {
+  background: rgba(255, 59, 48, 0.2);
+}
+
+
+/* === Overlay Mode === */
+
+body.overlay {
+  background: transparent;
+}
+
+body.overlay #app {
+  max-width: 100%;
+  min-height: auto;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+body.overlay header {
+  padding: 12px 16px 8px;
+}
+
+body.overlay .logo {
+  font-size: 13px;
+}
+
+body.overlay .status-badge {
+  font-size: 10px;
+}
+
+body.overlay main {
+  padding: 0 14px;
+  gap: 12px;
+}
+
+body.overlay .message-bubble {
+  padding: 12px 14px;
+  font-size: 14px;
+  min-height: 44px;
+  border-radius: 12px;
+}
+
+body.overlay #voice-section {
+  padding: 2px 0;
+  gap: 6px;
+}
+
+body.overlay .talk-btn-inner {
+  width: 52px;
+  height: 52px;
+}
+
+body.overlay .talk-btn-inner svg {
+  width: 22px;
+  height: 22px;
+}
+
+body.overlay .talk-btn-label {
+  font-size: 10px;
+}
+
+body.overlay .draw-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+}
+
+body.overlay .draw-status {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+body.overlay #log-section {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+body.overlay .section-title {
+  font-size: 10px;
+}
+
+body.overlay footer {
+  padding: 10px 14px;
+}
+
+body.overlay .action-btn {
+  padding: 8px 12px;
+  font-size: 12px;
+}
