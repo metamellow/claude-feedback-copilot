@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "feedback-copilot": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/src/mcp/bootstrap.js"],
-      "cwd": "${CLAUDE_PLUGIN_ROOT}"
-    }
-  }
-}

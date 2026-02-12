@@ -20,6 +20,8 @@ claude-feedback-copilot/              ← GitHub repo root / marketplace root
 │       ├── package.json              ← Node.js dependencies
 │       ├── commands/
 │       │   └── review.md             ← Slash command → /feedback-copilot:review
+│       ├── test/
+│       │   └── index.html            ← Built-in test page (no framework needed)
 │       └── src/
 │           ├── mcp/
 │           │   ├── bootstrap.js      ← Entry point (auto-installs deps, then starts server)
@@ -459,7 +461,55 @@ These are hard-won rules. Follow them exactly.
 
 ---
 
-## 9. Installation
+## 9. Built-in Test Page
+
+The plugin includes a minimal test page so you can test the full overlay/speech/drawing flow without needing a real project.
+
+### File: `plugins/feedback-copilot/test/index.html`
+
+A simple static HTML page with inline CSS (no framework, no build step). Should include:
+
+- **Hero section** — heading, subtitle, a CTA button
+- **Cards section** — 3 simple product/feature cards in a row
+- **Footer** — basic footer with links
+
+The page should look like a real (but minimal) app so you can give realistic feedback like "the button is too small" or "the cards need more spacing."
+
+### Serving the test page
+
+The bridge server (`server.js`) should add a route:
+
+```javascript
+this.app.use('/test', express.static(path.join(__dirname, '..', '..', 'test')));
+```
+
+This serves the test page at `http://localhost:3847/test`.
+
+### Integration with review.md
+
+The `review.md` command (Step 0 — detect dev server) should add a fallback:
+
+> If no `package.json` exists, no framework is detected, and no dev server is running, offer to use the built-in test page: "No app detected in this project. Would you like to test with the built-in demo page at `http://localhost:PORT/test`?"
+
+When using the test page, `start_review_session` should be called with:
+- `app_url`: `http://localhost:PORT/test`
+- `pages`: `["/test"]` (single page)
+
+This lets you test the complete flow — overlay injection, TTS, speech recognition, drawing, feedback logging — without any external project.
+
+### Directory structure update
+
+```
+plugins/feedback-copilot/
+├── test/
+│   └── index.html            ← Built-in test page (minimal HTML + inline CSS)
+├── src/
+│   └── ...
+```
+
+---
+
+## 10. Installation
 
 ### From GitHub
 
