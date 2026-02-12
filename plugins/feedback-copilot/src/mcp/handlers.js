@@ -57,14 +57,16 @@ const handlers = {
 
     bridge.send('speak', { message });
 
+    // Wait for TTS to finish first
+    await bridge.waitForEvent('speech_complete');
+
     if (shouldAwait) {
-      // Wait for speech to finish, then auto-listen
+      // TTS done — now start the mic and wait for user speech
+      bridge.send('listen_start', {});
       const transcript = await bridge.waitForEvent('user_speech');
       return { user_said: transcript };
     }
 
-    // Just wait for TTS to finish
-    await bridge.waitForEvent('speech_complete');
     return { status: 'spoken' };
   },
 
