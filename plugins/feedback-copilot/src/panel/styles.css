@@ -1,0 +1,339 @@
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --text: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --accent: #0071e3;
+  --accent-hover: #0077ED;
+  --red: #ff3b30;
+  --green: #34c759;
+  --orange: #ff9500;
+  --yellow: #ffcc00;
+  --border: rgba(0, 0, 0, 0.06);
+  --radius: 12px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 100%;
+}
+
+/* Header */
+header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.status-badge {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--orange);
+  color: white;
+  font-weight: 500;
+}
+
+.status-badge.connected {
+  background: var(--green);
+}
+
+.progress {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+/* Message Area */
+.message-area {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.message-bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  max-width: 100%;
+}
+
+/* Voice Section */
+.voice-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  position: relative;
+}
+
+.talk-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.talk-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.talk-btn.recording {
+  border-color: var(--red);
+  color: var(--red);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.2); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 59, 48, 0); }
+}
+
+.draw-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.draw-btn:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.draw-btn.active {
+  border-color: var(--red);
+  background: var(--red);
+  color: white;
+}
+
+.draw-status {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--red);
+  font-weight: 500;
+}
+
+.draw-status.visible {
+  display: flex;
+}
+
+.draw-done-btn,
+.draw-clear-btn {
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.draw-done-btn {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.draw-clear-btn {
+  color: var(--text-secondary);
+}
+
+/* Review Log */
+.review-log {
+  padding: 0 20px 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.log-item {
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.log-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.log-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.log-badge.bug { background: #ffe5e5; color: var(--red); }
+.log-badge.visual { background: #e5f0ff; color: var(--accent); }
+.log-badge.ux { background: #f0e5ff; color: #8b5cf6; }
+.log-badge.performance { background: #fff5e5; color: var(--orange); }
+.log-badge.content { background: #e5ffe5; color: var(--green); }
+.log-badge.feature_request { background: #f5f5f5; color: var(--text-secondary); }
+
+.severity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.severity-dot.critical { background: var(--red); }
+.severity-dot.major { background: var(--orange); }
+.severity-dot.minor { background: var(--yellow); }
+.severity-dot.suggestion { background: #c7c7cc; }
+
+.log-item-desc {
+  color: var(--text);
+  line-height: 1.4;
+}
+
+/* Footer */
+footer {
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.footer-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+  transition: all 0.15s ease;
+}
+
+.footer-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.footer-btn-end {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.footer-btn-end:hover {
+  background: var(--red);
+  color: white;
+}
+
+/* ===== Overlay Mode ===== */
+body.overlay {
+  min-height: auto;
+  background: transparent;
+}
+
+body.overlay .panel {
+  min-height: auto;
+}
+
+body.overlay header {
+  padding: 10px 14px;
+}
+
+body.overlay .logo {
+  font-size: 13px;
+}
+
+body.overlay .message-area {
+  padding: 12px 14px;
+}
+
+body.overlay .message-bubble {
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+body.overlay .voice-section {
+  padding: 8px 14px;
+}
+
+body.overlay .talk-btn {
+  width: 40px;
+  height: 40px;
+}
+
+body.overlay .draw-btn {
+  width: 34px;
+  height: 34px;
+}
+
+body.overlay .review-log {
+  max-height: 180px;
+  padding: 0 14px 8px;
+}
+
+body.overlay footer {
+  padding: 8px 14px;
+}
+
+body.overlay .footer-btn {
+  padding: 8px;
+  font-size: 12px;
+}

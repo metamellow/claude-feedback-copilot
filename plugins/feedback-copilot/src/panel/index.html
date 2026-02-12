@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feedback Copilot</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="panel">
+    <header>
+      <div class="header-left">
+        <span class="logo">Feedback Copilot</span>
+        <span class="status-badge" id="status-badge">Connecting...</span>
+      </div>
+      <div class="progress" id="progress"></div>
+    </header>
+
+    <div class="message-area" id="message-area">
+      <div class="message-bubble" id="message-bubble">
+        Waiting for session to start...
+      </div>
+    </div>
+
+    <div class="voice-section">
+      <button class="talk-btn" id="talk-btn" title="Hold spacebar or click to talk">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <button class="draw-btn" id="draw-btn" title="Draw on screen">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+        </svg>
+      </button>
+      <div class="draw-status" id="draw-status">
+        <span>Drawing mode active</span>
+        <button class="draw-done-btn" id="draw-done-btn">Done</button>
+        <button class="draw-clear-btn" id="draw-clear-btn">Clear</button>
+      </div>
+    </div>
+
+    <div class="review-log" id="review-log"></div>
+
+    <footer>
+      <button class="footer-btn" id="next-page-btn">Next Page</button>
+      <button class="footer-btn footer-btn-end" id="wrap-up-btn">Wrap Up</button>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

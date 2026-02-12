@@ -48,7 +48,30 @@
       "Bash(powershell.exe:*)",
       "Bash(node:*)",
       "Bash(git mv:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" log --oneline -5)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/mcp/index.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/mcp/tools.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/mcp/handlers.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/mcp/bootstrap.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/bridge/server.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/bridge/connection.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/session/state.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/session/review-log.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/panel/index.html)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/panel/styles.css)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/panel/app.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/src/panel/overlay.js)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:.claude-plugin/marketplace.json)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/.claude-plugin/plugin.json)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/.mcp.json)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/package.json)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/commands/review.md)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:plugins/feedback-copilot/test/index.html)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1 --name-only --pretty=format:\"\")",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" ls-tree -r --name-only HEAD~1)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:README.md)",
+      "Bash(git -C \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\claude-feedback-copilot\" show HEAD~1:.gitattributes)"
     ]
   }
 }

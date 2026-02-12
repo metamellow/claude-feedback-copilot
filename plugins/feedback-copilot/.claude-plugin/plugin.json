@@ -1,0 +1,9 @@
+{
+  "name": "feedback-copilot",
+  "description": "Voice-driven product review sessions for Claude Code. Opens a browser panel, talks you through your app page by page, listens via speech recognition, logs structured feedback, and then fixes everything.",
+  "version": "1.0.0",
+  "author": { "name": "metamellow" },
+  "repository": "https://github.com/metamellow/claude-feedback-copilot",
+  "license": "MIT",
+  "keywords": ["feedback", "review", "voice", "product", "ux"]
+}
